@@ -40,6 +40,12 @@ struct MainTabView: View {
                     Label("Активність", systemImage: "figure.run")
                 }
                 .tag(4)
+
+            ProgressView()
+                .tabItem {
+                    Label("Прогрес", systemImage: "chart.line.uptrend.xyaxis")
+                }
+                .tag(5)
         }
         .preferredColorScheme(.dark)
     }

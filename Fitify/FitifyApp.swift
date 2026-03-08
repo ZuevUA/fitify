@@ -27,7 +27,8 @@ struct FitifyApp: App {
             CachedCoachMessage.self,
             CoachState.self,
             CachedHealthHistory.self,
-            WorkoutDecisionLog.self
+            WorkoutDecisionLog.self,
+            BodyWeightLog.self
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
