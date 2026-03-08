@@ -9,6 +9,7 @@ import SwiftData
 @Model
 final class UserProfile {
     var id: UUID
+    var name: String?
     var goal: String // WorkoutGoal raw value
     var experience: String // ExperienceLevel raw value
     var gender: String // Gender raw value
@@ -26,6 +27,7 @@ final class UserProfile {
 
     init(
         id: UUID = UUID(),
+        name: String? = nil,
         goal: WorkoutGoal = .buildMuscle,
         experience: ExperienceLevel = .beginner,
         gender: Gender = .male,
@@ -40,6 +42,7 @@ final class UserProfile {
         onboardingCompleted: Bool = false
     ) {
         self.id = id
+        self.name = name
         self.goal = goal.rawValue
         self.experience = experience.rawValue
         self.gender = gender.rawValue

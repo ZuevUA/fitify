@@ -4,10 +4,24 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct DashboardView: View {
     @Bindable var viewModel: DashboardViewModel
+    @Query private var profiles: [UserProfile]
     @State private var animateProgress = false
+    @State private var showProfile = false
+
+    private var profile: UserProfile? { profiles.first }
+
+    private var profileInitials: String {
+        guard let name = profile?.name, !name.isEmpty else { return "Я" }
+        let parts = name.split(separator: " ")
+        if parts.count >= 2 {
+            return "\(parts[0].prefix(1))\(parts[1].prefix(1))"
+        }
+        return String(name.prefix(1)).uppercased()
+    }
 
     var body: some View {
         NavigationStack {
@@ -57,19 +71,42 @@ struct DashboardView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    if viewModel.isLoading {
-                        ProgressView()
-                    } else {
-                        Button {
-                            Task {
-                                await viewModel.refresh()
+                    HStack(spacing: 12) {
+                        if viewModel.isLoading {
+                            ProgressView()
+                        } else {
+                            Button {
+                                Task {
+                                    await viewModel.refresh()
+                                }
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.body.weight(.medium))
                             }
+                        }
+
+                        // Profile Avatar
+                        Button {
+                            showProfile = true
                         } label: {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.body.weight(.medium))
+                            ZStack {
+                                Circle()
+                                    .fill(LinearGradient(
+                                        colors: [.blue, .purple],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ))
+                                    .frame(width: 32, height: 32)
+                                Text(profileInitials)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
                         }
                     }
                 }
+            }
+            .sheet(isPresented: $showProfile) {
+                ProfileView()
             }
             .refreshable {
                 await viewModel.refresh()
