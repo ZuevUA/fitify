@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import Network
 
 @Observable
 final class LLMService {
@@ -11,6 +12,10 @@ final class LLMService {
 
     private let session: URLSession
     private let baseURL: URL
+
+    // Network monitoring
+    private let networkMonitor = NWPathMonitor()
+    private(set) var isConnected = true
 
     private(set) var isProcessing = false
     private(set) var lastError: Error?
@@ -25,11 +30,32 @@ final class LLMService {
         // In production, this would be your deployed server URL
         let urlString = ProcessInfo.processInfo.environment["FITIFY_API_URL"] ?? "http://localhost:3000"
         self.baseURL = URL(string: urlString)!
+
+        // Start network monitoring
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                self?.isConnected = path.status == .satisfied
+            }
+        }
+        networkMonitor.start(queue: DispatchQueue.global(qos: .background))
+    }
+
+    deinit {
+        networkMonitor.cancel()
+    }
+
+    // MARK: - Network Check
+
+    private func checkNetwork() throws {
+        guard isConnected else {
+            throw LLMError.noInternet
+        }
     }
 
     // MARK: - Generate Health Insight
 
     func generateInsight(from snapshot: HealthSnapshot) async throws -> AIInsight {
+        try checkNetwork()
         isProcessing = true
         defer { isProcessing = false }
 
@@ -1131,17 +1157,20 @@ enum LLMError: LocalizedError {
     case httpError(statusCode: Int)
     case parsingFailed
     case networkError(underlying: Error)
+    case noInternet
 
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
-            return "Invalid response from AI service"
+            return "Невірна відповідь від AI сервісу"
         case .httpError(let statusCode):
-            return "AI service error: HTTP \(statusCode)"
+            return "Помилка AI сервісу: HTTP \(statusCode)"
         case .parsingFailed:
-            return "Failed to parse AI response"
+            return "Не вдалося обробити відповідь AI"
         case .networkError(let error):
-            return "Network error: \(error.localizedDescription)"
+            return "Помилка мережі: \(error.localizedDescription)"
+        case .noInternet:
+            return "Немає з'єднання з інтернетом"
         }
     }
 }

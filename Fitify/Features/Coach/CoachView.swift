@@ -56,46 +56,65 @@ struct CoachView: View {
         return Array(replies.prefix(5))
     }
 
+    private var llmService: LLMService { LLMService.shared }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Messages List
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(viewModel.messages) { message in
-                                MessageBubble(message: message)
-                                    .id(message.id)
-                            }
+                // No Internet View
+                if !llmService.isConnected && viewModel.messages.isEmpty {
+                    NoInternetView {
+                        Task { await viewModel.checkAndSendMorningBriefing() }
+                    }
+                } else {
+                    // Messages List
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                // Network error banner
+                                if !llmService.isConnected {
+                                    ErrorBanner(
+                                        message: "Немає з'єднання з інтернетом",
+                                        retryAction: nil,
+                                        isVisible: .constant(true)
+                                    )
+                                    .padding(.horizontal)
+                                }
 
-                            // Typing indicator
-                            if viewModel.isThinking {
-                                TypingIndicator()
-                                    .id("typing")
+                                ForEach(viewModel.messages) { message in
+                                    MessageBubble(message: message)
+                                        .id(message.id)
+                                }
+
+                                // Typing indicator
+                                if viewModel.isThinking {
+                                    TypingIndicator()
+                                        .id("typing")
+                                }
                             }
+                            .padding(.horizontal)
+                            .padding(.top, 16)
+                            .padding(.bottom, 8)
                         }
-                        .padding(.horizontal)
-                        .padding(.top, 16)
-                        .padding(.bottom, 8)
+                        .onChange(of: viewModel.messages.count) { _, _ in
+                            scrollToBottom(proxy: proxy)
+                        }
+                        .onChange(of: viewModel.isThinking) { _, _ in
+                            scrollToBottom(proxy: proxy)
+                        }
                     }
-                    .onChange(of: viewModel.messages.count) { _, _ in
-                        scrollToBottom(proxy: proxy)
-                    }
-                    .onChange(of: viewModel.isThinking) { _, _ in
-                        scrollToBottom(proxy: proxy)
-                    }
-                }
 
-                Divider()
+                    Divider()
 
-                // Quick Replies
-                if viewModel.messages.isEmpty || showQuickReplies {
-                    QuickReplyView(suggestions: contextualReplies) { text in
-                        viewModel.inputText = text
-                        showQuickReplies = false
-                        Task { await viewModel.sendMessage() }
+                    // Quick Replies
+                    if viewModel.messages.isEmpty || showQuickReplies {
+                        QuickReplyView(suggestions: contextualReplies) { text in
+                            viewModel.inputText = text
+                            showQuickReplies = false
+                            Task { await viewModel.sendMessage() }
+                        }
+                        .padding(.top, 8)
                     }
-                    .padding(.top, 8)
                 }
 
                 // Input Area

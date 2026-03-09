@@ -11,6 +11,7 @@ struct DashboardView: View {
     @Query private var profiles: [UserProfile]
     @State private var animateProgress = false
     @State private var showProfile = false
+    @State private var showError = false
 
     private var profile: UserProfile? { profiles.first }
 
@@ -27,30 +28,46 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Recovery Score
-                    RecoveryScoreCard(
-                        score: viewModel.recoveryScore,
-                        recommendation: viewModel.recoveryRecommendation,
-                        animate: animateProgress
-                    )
-
-                    // Metrics Grid
-                    MetricsGridView(viewModel: viewModel)
-
-                    // Virus Risk Banner
-                    if viewModel.virusRisk != .low {
-                        VirusRiskBanner(riskLevel: viewModel.virusRisk)
+                    // Error Banner
+                    if let error = viewModel.errorMessage, showError {
+                        ErrorBanner(
+                            message: error,
+                            retryAction: {
+                                Task { await viewModel.refresh() }
+                            },
+                            isVisible: $showError
+                        )
                     }
 
-                    // Weekly Trend
-                    WeeklyTrendCard(
-                        scores: viewModel.weeklyRecoveryScores,
-                        days: viewModel.weekDays
-                    )
+                    // Loading skeleton or content
+                    if viewModel.isLoading && viewModel.recoveryScore == 0 {
+                        DashboardSkeletonView()
+                    } else {
+                        // Recovery Score
+                        RecoveryScoreCard(
+                            score: viewModel.recoveryScore,
+                            recommendation: viewModel.recoveryRecommendation,
+                            animate: animateProgress
+                        )
 
-                    // Latest AI Insight
-                    if let insight = viewModel.latestInsight {
-                        AIInsightCard(insight: insight)
+                        // Metrics Grid
+                        MetricsGridView(viewModel: viewModel)
+
+                        // Virus Risk Banner
+                        if viewModel.virusRisk != .low {
+                            VirusRiskBanner(riskLevel: viewModel.virusRisk)
+                        }
+
+                        // Weekly Trend
+                        WeeklyTrendCard(
+                            scores: viewModel.weeklyRecoveryScores,
+                            days: viewModel.weekDays
+                        )
+
+                        // Latest AI Insight
+                        if let insight = viewModel.latestInsight {
+                            AIInsightCard(insight: insight)
+                        }
                     }
 
                     Spacer(minLength: 100)
@@ -115,8 +132,16 @@ struct DashboardView: View {
         .preferredColorScheme(.dark)
         .task {
             await viewModel.loadData()
+            if viewModel.errorMessage != nil {
+                withAnimation { showError = true }
+            }
             withAnimation(.easeOut(duration: 1.2).delay(0.3)) {
                 animateProgress = true
+            }
+        }
+        .onChange(of: viewModel.errorMessage) { _, newValue in
+            if newValue != nil {
+                withAnimation { showError = true }
             }
         }
     }

@@ -52,32 +52,46 @@ struct HealthHubView: View {
 
 struct ActivityContentView: View {
     var viewModel: ActivityViewModel
+    @State private var showError = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // Today's Stats
-                HStack(spacing: 12) {
-                    ActivityStatCard(
-                        icon: "figure.walk",
-                        iconColor: .green,
-                        value: "\(viewModel.steps)",
-                        label: "Кроки",
-                        progress: viewModel.stepsProgress
-                    )
-
-                    ActivityStatCard(
-                        icon: "flame.fill",
-                        iconColor: .orange,
-                        value: "\(viewModel.calories)",
-                        label: "Калорії",
-                        progress: viewModel.moveProgress
+                // Error banner
+                if let error = viewModel.errorMessage, showError {
+                    ErrorBanner(
+                        message: error,
+                        retryAction: { Task { await viewModel.loadData() } },
+                        isVisible: $showError
                     )
                 }
 
-                HStack(spacing: 12) {
-                    ActivityStatCard(
-                        icon: "figure.run",
+                // Loading skeleton or content
+                if viewModel.isLoading && !viewModel.hasLoadedOnce {
+                    HealthHubSkeletonView()
+                } else {
+                    // Today's Stats
+                    HStack(spacing: 12) {
+                        ActivityStatCard(
+                            icon: "figure.walk",
+                            iconColor: .green,
+                            value: "\(viewModel.steps)",
+                            label: "Кроки",
+                            progress: viewModel.stepsProgress
+                        )
+
+                        ActivityStatCard(
+                            icon: "flame.fill",
+                            iconColor: .orange,
+                            value: "\(viewModel.calories)",
+                            label: "Калорії",
+                            progress: viewModel.moveProgress
+                        )
+                    }
+
+                    HStack(spacing: 12) {
+                        ActivityStatCard(
+                            icon: "figure.run",
                         iconColor: .blue,
                         value: "\(viewModel.exerciseMinutes)",
                         label: "Хвилин активності",
@@ -118,6 +132,7 @@ struct ActivityContentView: View {
                 .padding()
                 .background(Color(white: 0.08))
                 .cornerRadius(16)
+                }
 
                 Spacer(minLength: 100)
             }
@@ -126,6 +141,9 @@ struct ActivityContentView: View {
         }
         .task {
             await viewModel.loadData()
+            if viewModel.errorMessage != nil {
+                showError = true
+            }
         }
     }
 }
