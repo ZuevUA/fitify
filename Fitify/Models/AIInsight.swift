@@ -51,12 +51,12 @@ enum InsightCategory: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .recovery: return "Recovery"
-        case .sleep: return "Sleep"
-        case .activity: return "Activity"
-        case .stress: return "Stress"
-        case .illness: return "Health Alert"
-        case .general: return "General"
+        case .recovery: return "Відновлення"
+        case .sleep: return "Сон"
+        case .activity: return "Активність"
+        case .stress: return "Стрес"
+        case .illness: return "Здоров'я"
+        case .general: return "Загальне"
         }
     }
 
@@ -87,20 +87,20 @@ extension AIInsight {
     static var mockInsights: [AIInsight] {
         [
             AIInsight(
-                title: "Great Recovery",
-                content: "Your HRV has improved 15% over the past week. Your body is adapting well to your current training load.",
+                title: "Відмінне відновлення",
+                content: "Твій HRV зріс на 15% за останній тиждень. Твій організм добре адаптується до поточного навантаження.",
                 category: .recovery,
                 priority: 1
             ),
             AIInsight(
-                title: "Sleep Pattern Detected",
-                content: "You've been going to bed 45 minutes later on weekends. Consistent sleep timing can improve your recovery score.",
+                title: "Виявлено патерн сну",
+                content: "Ти лягаєш спати на 45 хвилин пізніше у вихідні. Стабільний графік сну покращить якість відновлення.",
                 category: .sleep,
                 priority: 2
             ),
             AIInsight(
-                title: "Activity Goal Streak",
-                content: "You've hit your step goal 5 days in a row! Consider increasing your daily target by 500 steps.",
+                title: "Серія досягнутих цілей",
+                content: "Ти досяг цілі кроків 5 днів поспіль! Можеш збільшити денну ціль на 500 кроків.",
                 category: .activity,
                 priority: 3
             )

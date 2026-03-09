@@ -150,7 +150,7 @@ struct RecoveryScoreCard: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("Recovery Score")
+            Text("Відновлення")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.white.opacity(0.8))
 

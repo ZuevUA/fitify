@@ -92,11 +92,12 @@ extension Date {
 
     var relativeDescription: String {
         if isToday {
-            return "Today"
+            return "Сьогодні"
         } else if isYesterday {
-            return "Yesterday"
+            return "Вчора"
         } else {
             let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "uk_UA")
             formatter.dateStyle = .medium
             formatter.timeStyle = .none
             return formatter.string(from: self)

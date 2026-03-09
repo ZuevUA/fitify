@@ -6,10 +6,55 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Quick Reply Model
+
+struct QuickReply: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+// MARK: - CoachView
+
 struct CoachView: View {
     @Bindable var viewModel: CoachViewModel
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: \WorkoutLog.date, order: .reverse) private var recentLogs: [WorkoutLog]
     @FocusState private var isInputFocused: Bool
+    @State private var showQuickReplies = true
+
+    // Contextual quick replies based on time and recent activity
+    var contextualReplies: [QuickReply] {
+        var replies: [QuickReply] = []
+
+        // Morning (before 12:00)
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12 {
+            replies += [
+                QuickReply(text: "Як моє відновлення сьогодні?"),
+                QuickReply(text: "Чи варто тренуватись?"),
+                QuickReply(text: "Погано спав цієї ночі")
+            ]
+        }
+
+        // After workout (today)
+        if let lastLog = recentLogs.first,
+           Calendar.current.isDateInToday(lastLog.date) {
+            replies += [
+                QuickReply(text: "Щойно завершив тренування"),
+                QuickReply(text: "Що їсти після тренування?"),
+                QuickReply(text: "Коли наступне тренування?")
+            ]
+        }
+
+        // Always available
+        replies += [
+            QuickReply(text: "Проаналізуй мій тиждень"),
+            QuickReply(text: "Відчуваю втому в м'язах"),
+            QuickReply(text: "Мій прогрес цього місяця")
+        ]
+
+        return Array(replies.prefix(5))
+    }
 
     var body: some View {
         NavigationStack {
@@ -42,6 +87,16 @@ struct CoachView: View {
                 }
 
                 Divider()
+
+                // Quick Replies
+                if viewModel.messages.isEmpty || showQuickReplies {
+                    QuickReplyView(suggestions: contextualReplies) { text in
+                        viewModel.inputText = text
+                        showQuickReplies = false
+                        Task { await viewModel.sendMessage() }
+                    }
+                    .padding(.top, 8)
+                }
 
                 // Input Area
                 InputArea(
@@ -107,9 +162,25 @@ struct MessageBubble: View {
     let message: CoachMessage
 
     var body: some View {
-        HStack {
+        HStack(alignment: .bottom, spacing: 8) {
+            // Coach avatar for assistant messages
+            if message.role == .assistant {
+                Circle()
+                    .fill(LinearGradient(
+                        colors: [.purple, .blue],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Text("В")
+                            .font(.caption.bold())
+                            .foregroundColor(.white)
+                    )
+            }
+
             if message.role == .user {
-                Spacer(minLength: 60)
+                Spacer(minLength: 40)
             }
 
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
@@ -118,12 +189,19 @@ struct MessageBubble: View {
                     MessageTypeBadge(type: message.type)
                 }
 
-                Text(message.content)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(backgroundColor)
-                    .foregroundColor(textColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                // Message content with Markdown support for assistant
+                if message.role == .assistant {
+                    markdownText(message.content)
+                        .padding(12)
+                        .background(backgroundColor)
+                        .cornerRadius(16, corners: [.topLeft, .topRight, .bottomRight])
+                } else {
+                    Text(message.content)
+                        .padding(12)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(16, corners: [.topLeft, .topRight, .bottomLeft])
+                }
 
                 Text(timeString)
                     .font(.caption2)
@@ -131,8 +209,24 @@ struct MessageBubble: View {
             }
 
             if message.role == .assistant {
-                Spacer(minLength: 60)
+                Spacer(minLength: 40)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func markdownText(_ text: String) -> some View {
+        if let attributed = try? AttributedString(
+            markdown: text,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) {
+            Text(attributed)
+                .foregroundColor(textColor)
+                .font(.subheadline)
+        } else {
+            Text(text)
+                .foregroundColor(textColor)
+                .font(.subheadline)
         }
     }
 
@@ -149,13 +243,13 @@ struct MessageBubble: View {
             case .workoutSuggestion:
                 return .green.opacity(0.2)
             default:
-                return Color(.systemGray5)
+                return Color(white: 0.12)
             }
         }
     }
 
     private var textColor: Color {
-        message.role == .user ? .white : .primary
+        message.role == .user ? .white : Color(white: 0.9)
     }
 
     private var timeString: String {
@@ -381,9 +475,61 @@ struct VoiceInputSheet: View {
     }
 }
 
+// MARK: - Quick Reply View
+
+struct QuickReplyView: View {
+    let suggestions: [QuickReply]
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(suggestions) { reply in
+                    Button(reply.text) {
+                        onSelect(reply.text)
+                    }
+                    .font(.subheadline)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color(white: 0.14))
+                    .cornerRadius(20)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color(white: 0.25), lineWidth: 1)
+                    )
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+}
+
+// MARK: - Rounded Corner Extension
+
+extension View {
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners))
+    }
+}
+
+struct RoundedCorner: Shape {
+    var radius: CGFloat
+    var corners: UIRectCorner
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(
+            roundedRect: rect,
+            byRoundingCorners: corners,
+            cornerRadii: CGSize(width: radius, height: radius)
+        )
+        return Path(path.cgPath)
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
     CoachView(viewModel: CoachViewModel())
-        .modelContainer(for: [CachedCoachMessage.self, SubjectiveFeedback.self, CoachState.self])
+        .modelContainer(for: [CachedCoachMessage.self, SubjectiveFeedback.self, CoachState.self, WorkoutLog.self])
 }

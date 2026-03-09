@@ -12,6 +12,7 @@ import SwiftData
 struct FitifyApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var coordinator = AppDataCoordinator()
+    @State private var notificationService = NotificationService()
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -47,14 +48,20 @@ struct FitifyApp: App {
             if hasCompletedOnboarding {
                 MainTabView()
                     .environment(coordinator)
+                    .environment(notificationService)
                     .task {
                         await coordinator.preloadAll()
+                        await notificationService.checkAuthorizationStatus()
                     }
             } else {
                 OnboardingView {
                     withAnimation {
                         hasCompletedOnboarding = true
                     }
+                }
+                .environment(notificationService)
+                .task {
+                    await notificationService.requestPermission()
                 }
             }
         }

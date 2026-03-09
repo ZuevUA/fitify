@@ -11,6 +11,7 @@ import SwiftData
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) var dismiss
+    @Environment(NotificationService.self) private var notifications
     @Query private var profiles: [UserProfile]
     @Query(sort: \WorkoutLog.date, order: .reverse) private var workoutLogs: [WorkoutLog]
     @Query private var programs: [WorkoutProgram]
@@ -18,6 +19,11 @@ struct ProfileView: View {
 
     @State private var showEditProfile = false
     @State private var showOnboarding = false
+
+    // Notification settings
+    @State private var morningBriefing = false
+    @State private var workoutReminder = false
+    @State private var streakReminder = false
 
     var profile: UserProfile? { profiles.first }
 
@@ -199,17 +205,63 @@ struct ProfileView: View {
                             }
                         }
 
+                        // MARK: - Notifications
+                        ProfileSection(title: "Сповіщення") {
+                            if !notifications.isAuthorized {
+                                Button {
+                                    Task { await notifications.requestPermission() }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "bell.badge")
+                                            .foregroundColor(.orange)
+                                            .frame(width: 28)
+                                        Text("Дозволити сповіщення")
+                                            .foregroundColor(.orange)
+                                            .fontWeight(.medium)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .foregroundColor(.gray)
+                                            .font(.caption)
+                                    }
+                                    .padding(.vertical, 8)
+                                }
+                            } else {
+                                NotifToggleRow(
+                                    icon: "sun.max.fill",
+                                    label: "Ранковий брифінг",
+                                    subtitle: "Щодня о 08:00",
+                                    color: .yellow,
+                                    isOn: $morningBriefing
+                                ) {
+                                    UserDefaults.standard.set(morningBriefing, forKey: "notif_morning")
+                                    notifications.scheduleMorningBriefing(enabled: morningBriefing)
+                                }
+
+                                NotifToggleRow(
+                                    icon: "dumbbell.fill",
+                                    label: "Нагадування про тренування",
+                                    subtitle: "За 30 хв до початку",
+                                    color: .blue,
+                                    isOn: $workoutReminder
+                                ) {
+                                    UserDefaults.standard.set(workoutReminder, forKey: "notif_workout")
+                                }
+
+                                NotifToggleRow(
+                                    icon: "flame.fill",
+                                    label: "Серія тренувань",
+                                    subtitle: "Якщо не тренувався до 19:00",
+                                    color: .orange,
+                                    isOn: $streakReminder
+                                ) {
+                                    UserDefaults.standard.set(streakReminder, forKey: "notif_streak")
+                                    notifications.scheduleStreakReminder(currentStreak: currentStreak, enabled: streakReminder)
+                                }
+                            }
+                        }
+
                         // MARK: - Settings
                         ProfileSection(title: "Налаштування") {
-                            SettingsRow(
-                                icon: "bell.fill",
-                                label: "Сповіщення",
-                                color: .orange
-                            ) {
-                                Toggle("", isOn: .constant(true))
-                                    .tint(.orange)
-                            }
-
                             SettingsRow(
                                 icon: "heart.fill",
                                 label: "Apple Health",
@@ -220,7 +272,7 @@ struct ProfileView: View {
                             }
 
                             SettingsRow(
-                                icon: "moon.fill",
+                                icon: "scalemass.fill",
                                 label: "Одиниці виміру",
                                 color: .purple
                             ) {
@@ -282,6 +334,14 @@ struct ProfileView: View {
             .fullScreenCover(isPresented: $showOnboarding) {
                 WorkoutOnboardingView {
                     showOnboarding = false
+                }
+            }
+            .onAppear {
+                Task {
+                    await notifications.checkAuthorizationStatus()
+                    morningBriefing = UserDefaults.standard.bool(forKey: "notif_morning")
+                    workoutReminder = UserDefaults.standard.bool(forKey: "notif_workout")
+                    streakReminder = UserDefaults.standard.bool(forKey: "notif_streak")
                 }
             }
         }
@@ -563,9 +623,46 @@ struct EditProfileView: View {
     }
 }
 
+// MARK: - Notification Toggle Row
+
+struct NotifToggleRow: View {
+    let icon: String
+    let label: String
+    let subtitle: String
+    let color: Color
+    @Binding var isOn: Bool
+    let onChange: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 7)
+                .fill(color)
+                .frame(width: 28, height: 28)
+                .overlay(
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .foregroundColor(.white)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+            }
+            Spacer()
+            Toggle("", isOn: $isOn)
+                .tint(color)
+                .onChange(of: isOn) { _, _ in onChange() }
+        }
+        .padding(.vertical, 8)
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
     ProfileView()
         .modelContainer(for: [UserProfile.self, WorkoutLog.self, WorkoutProgram.self, BodyWeightLog.self])
+        .environment(NotificationService())
 }

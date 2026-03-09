@@ -6,49 +6,58 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @State private var selectedTab = 0
+    @State private var selectedTab: AppTab = .dashboard
     @Environment(AppDataCoordinator.self) private var coordinator
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            // 1. Головна (Dashboard)
             DashboardView(viewModel: coordinator.dashboard)
                 .tabItem {
-                    Label("Dashboard", systemImage: "heart.text.square.fill")
+                    Label("Головна", systemImage: "house.fill")
                 }
-                .tag(0)
+                .tag(AppTab.dashboard)
 
-            CoachView(viewModel: coordinator.coach)
-                .tabItem {
-                    Label("Коуч", systemImage: "brain.head.profile")
-                }
-                .tag(1)
-
+            // 2. Тренування
             WorkoutContainerView()
                 .tabItem {
                     Label("Тренування", systemImage: "dumbbell.fill")
                 }
-                .tag(2)
+                .tag(AppTab.workout)
 
-            SleepView(viewModel: coordinator.sleep)
-                .tabItem {
-                    Label("Сон", systemImage: "bed.double.fill")
-                }
-                .tag(3)
-
-            ActivityView(viewModel: coordinator.activity)
-                .tabItem {
-                    Label("Активність", systemImage: "figure.run")
-                }
-                .tag(4)
-
+            // 3. Прогрес
             ProgressView()
                 .tabItem {
                     Label("Прогрес", systemImage: "chart.line.uptrend.xyaxis")
                 }
-                .tag(5)
+                .tag(AppTab.progress)
+
+            // 4. Коуч
+            CoachView(viewModel: coordinator.coach)
+                .tabItem {
+                    Label("Коуч", systemImage: "brain.head.profile")
+                }
+                .tag(AppTab.coach)
+
+            // 5. Здоров'я (combines Activity, Sleep, Insights)
+            HealthHubView()
+                .tabItem {
+                    Label("Здоров'я", systemImage: "heart.fill")
+                }
+                .tag(AppTab.health)
         }
         .preferredColorScheme(.dark)
     }
+}
+
+// MARK: - App Tab Enum
+
+enum AppTab: Hashable {
+    case dashboard
+    case workout
+    case progress
+    case coach
+    case health
 }
 
 #Preview {
